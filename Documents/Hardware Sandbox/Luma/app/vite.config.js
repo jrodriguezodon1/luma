@@ -13,6 +13,8 @@ export default defineConfig({
         'luma-icon-512.png', 
         'apple-touch-icon.png',
         'apple-launch.png',
+        'ios-icon.png',
+        'touch-icon.png',
         'luma-icon.svg',
         'luma_logo.png'
       ],
@@ -39,6 +41,11 @@ export default defineConfig({
             sizes: '180x180',
             type: 'image/png',
             purpose: 'any maskable'
+          },
+          {
+            src: '/ios-icon.png',
+            sizes: '180x180',
+            type: 'image/png'
           }
         ],
         start_url: '/',
