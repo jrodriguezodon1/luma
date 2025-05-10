@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 const WAKE_THEMES = [
   { id: 'warm', name: 'Warm Sunrise', color: '#ffcc33' },
@@ -15,9 +15,11 @@ const WakePage = ({
   time, 
   setTime, 
   duration, 
-  onDurationChange 
+  onDurationChange,
+  presets
 }) => {
   const sliderRef = useRef(null);
+  const [showCustomPresets, setShowCustomPresets] = useState(false);
   
   // Update slider fill
   useEffect(() => {
@@ -35,6 +37,29 @@ const WakePage = ({
   // Get current theme color
   const currentTheme = WAKE_THEMES.find(t => t.id === theme) || WAKE_THEMES[0];
   
+  // Find preset by ID (if theme is a custom preset)
+  const getPresetById = (id) => {
+    const idNum = parseInt(id.replace('preset-', ''));
+    return presets.find(p => p.id === idNum);
+  };
+  
+  // Get color for current theme
+  const getCurrentThemeColor = () => {
+    if (theme.startsWith('preset-')) {
+      const preset = getPresetById(theme);
+      if (preset) {
+        if (preset.type === 'sequence') {
+          return preset.colors[0].hex;
+        } else {
+          return `rgb(${preset.color.r}, ${preset.color.g}, ${preset.color.b})`;
+        }
+      }
+    }
+    return currentTheme.color;
+  };
+  
+  const themeColor = getCurrentThemeColor();
+  
   return (
     <div className="page">
       <h1>Wake Mode</h1>
@@ -42,8 +67,8 @@ const WakePage = ({
       <div 
         className={`color-orb ${enabled ? 'pulse-animation' : ''}`}
         style={{ 
-          backgroundColor: currentTheme.color,
-          boxShadow: enabled ? `0 0 60px ${currentTheme.color}80` : 'none',
+          backgroundColor: themeColor,
+          boxShadow: enabled ? `0 0 60px ${themeColor}80` : 'none',
           opacity: enabled ? 1 : 0.6
         }}
       />
@@ -100,35 +125,65 @@ const WakePage = ({
           </div>
           
           <div style={{ marginTop: '24px' }}>
-            <label>Wake Theme</label>
-            <div className="theme-selector">
-              {WAKE_THEMES.map(themeOption => (
-                <div 
-                  key={themeOption.id}
-                  className={`theme-option ${theme === themeOption.id ? 'active' : ''}`}
-                  onClick={() => setTheme(themeOption.id)}
-                >
-                  <div 
-                    className="theme-color" 
-                    style={{ backgroundColor: themeOption.color }}
-                  />
-                  <div className="theme-name">{themeOption.name}</div>
-                </div>
-              ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label>Wake Theme</label>
+              <button 
+                className="secondary-button" 
+                style={{ padding: '6px 12px', minHeight: 'auto', fontSize: '13px' }}
+                onClick={() => setShowCustomPresets(!showCustomPresets)}
+              >
+                {showCustomPresets ? 'Show Defaults' : 'Show Presets'}
+              </button>
             </div>
+            
+            {!showCustomPresets ? (
+              <div className="theme-selector">
+                {WAKE_THEMES.map(themeOption => (
+                  <div 
+                    key={themeOption.id}
+                    className={`theme-option ${theme === themeOption.id ? 'active' : ''}`}
+                    onClick={() => setTheme(themeOption.id)}
+                  >
+                    <div 
+                      className="theme-color" 
+                      style={{ backgroundColor: themeOption.color }}
+                    />
+                    <div className="theme-name">{themeOption.name}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="theme-selector">
+                {presets.map(preset => (
+                  <div 
+                    key={`preset-${preset.id}`}
+                    className={`theme-option ${theme === `preset-${preset.id}` ? 'active' : ''}`}
+                    onClick={() => setTheme(`preset-${preset.id}`)}
+                  >
+                    <div 
+                      className="theme-color" 
+                      style={{ 
+                        backgroundColor: preset.type === 'sequence' 
+                          ? preset.colors[0].hex 
+                          : `rgb(${preset.color.r}, ${preset.color.g}, ${preset.color.b})`
+                      }}
+                    />
+                    <div className="theme-name">{preset.name}</div>
+                  </div>
+                ))}
+                
+                {presets.length === 0 && (
+                  <div style={{ padding: '10px', fontSize: '14px', color: 'var(--text-color-secondary)' }}>
+                    No custom presets found. Create some in the Presets tab.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
-          <div style={{ marginTop: '32px', opacity: 0.7 }}>
-            <div className="settings-row">
-              <div className="label">
-                <span className="icon">🔊</span>
-                <span>Alarm Sound</span>
-              </div>
-              <span style={{ fontSize: '14px', fontStyle: 'italic', color: 'var(--text-color-tertiary)' }}>
-                Coming soon
-              </span>
-            </div>
-          </div>
+          <p className="text-secondary" style={{ fontSize: '14px', marginTop: '20px' }}>
+            The light will gradually brighten to wake you naturally before your alarm.
+          </p>
         </div>
       </div>
       

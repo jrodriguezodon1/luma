@@ -10,6 +10,9 @@ import PresetsPage from './pages/PresetsPage';
 import SettingsPage from './pages/SettingsPage';
 import ConnectionModal from './components/ConnectionModal';
 
+// Database service
+import * as db from './services/db';
+
 // Constants
 const MODE_OFF = 0;
 const MODE_SUNRISE = 1;
@@ -39,7 +42,7 @@ function App() {
   const [activeTab, setActiveTab] = useState(TABS.SUNSET);
   
   // State for connection and controller settings
-  const [ipAddress, setIpAddress] = useState(localStorage.getItem('controllerIP') || '');
+  const [ipAddress, setIpAddress] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [message, setMessage] = useState('');
@@ -62,13 +65,54 @@ function App() {
   const [wakeTime, setWakeTime] = useState('07:00');
   const [wakeEnabled, setWakeEnabled] = useState(false);
   const [wakeTheme, setWakeTheme] = useState('warm');
-  const [presets, setPresets] = useState([
-    { id: 1, name: 'Relaxing', color: { r: 64, g: 156, b: 255 }, brightness: 120, duration: 300 },
-    { id: 2, name: 'Focus', color: { r: 255, g: 244, b: 230 }, brightness: 200, duration: 600 },
-  ]);
+  const [presets, setPresets] = useState([]);
   
   // Handle Color Picker
   const [hexColor, setHexColor] = useState('#ffffff');
+  
+  // Load data from database on initial render
+  useEffect(() => {
+    // Load connection info
+    const connectionInfo = db.getConnectionInfo();
+    setIpAddress(connectionInfo.ip || '');
+    
+    // Load application settings
+    const appSettings = db.getSettings();
+    setSettings(prev => ({
+      ...prev,
+      brightness: appSettings.brightness,
+      speed: appSettings.speed
+    }));
+    
+    // Load wake configuration
+    const wakeConfig = db.getWakeConfig();
+    setWakeEnabled(wakeConfig.enabled);
+    setWakeTime(wakeConfig.time);
+    setWakeTheme(wakeConfig.theme);
+    
+    // Load sunset configuration
+    const sunsetConfig = db.getSunsetConfig();
+    setSunsetScheduled(sunsetConfig.scheduled);
+    setSunsetTime(sunsetConfig.time);
+    
+    // Load presets
+    const savedPresets = db.getPresets();
+    if (savedPresets && savedPresets.length > 0) {
+      setPresets(savedPresets);
+    }
+    
+    // Try to connect automatically if we have an IP
+    if (connectionInfo.ip) {
+      if (connectionInfo.ip.toLowerCase() === 'dev') {
+        connectInDevMode();
+      } else {
+        connectToController(connectionInfo.ip);
+      }
+    } else {
+      // Show connection modal on first load
+      setShowConnectionModal(true);
+    }
+  }, []);
   
   // Convert hex to RGB
   const hexToRgb = (hex) => {
@@ -85,25 +129,13 @@ function App() {
     return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
   };
   
-  // Check connection on mount
-  useEffect(() => {
-    if (ipAddress) {
-      // If we have a stored IP, try to connect automatically
-      if (ipAddress.toLowerCase() === 'dev') {
-        connectInDevMode();
-      } else {
-        connectToController();
-      }
-    } else {
-      // Show connection modal on first load
-      setShowConnectionModal(true);
-    }
-  }, []);
-  
   // Connect in dev mode
   const connectInDevMode = () => {
     setTimeout(() => {
-      setSettings(DEV_MODE_SETTINGS);
+      setSettings(prev => ({
+        ...prev,
+        ...DEV_MODE_SETTINGS
+      }));
       setHexColor(rgbToHex(
         DEV_MODE_SETTINGS.color.r, 
         DEV_MODE_SETTINGS.color.g, 
@@ -112,15 +144,15 @@ function App() {
       setIsConnected(true);
       setIsDevMode(true);
       setMessage('Connected to development mode!');
-      localStorage.setItem('controllerIP', 'dev');
+      db.saveConnectionInfo({ ip: 'dev' });
       setConnecting(false);
       setShowConnectionModal(false);
     }, 500); // Simulate network delay
   };
   
   // Connect to controller
-  const connectToController = async () => {
-    if (!ipAddress) {
+  const connectToController = async (ip = ipAddress) => {
+    if (!ip) {
       setMessage('Please enter an IP address');
       return;
     }
@@ -129,19 +161,22 @@ function App() {
     setMessage('Connecting...');
     
     // Dev mode bypass
-    if (ipAddress.toLowerCase() === 'dev') {
+    if (ip.toLowerCase() === 'dev') {
       connectInDevMode();
       return;
     }
     
     try {
-      const response = await axios.get(`http://${ipAddress}/api/status`, { timeout: 5000 });
-      setSettings(response.data);
+      const response = await axios.get(`http://${ip}/api/status`, { timeout: 5000 });
+      setSettings(prev => ({
+        ...prev,
+        ...response.data
+      }));
       setHexColor(rgbToHex(response.data.color.r, response.data.color.g, response.data.color.b));
       setIsConnected(true);
       setIsDevMode(false);
       setMessage('Connected successfully!');
-      localStorage.setItem('controllerIP', ipAddress);
+      db.saveConnectionInfo({ ip });
       setShowConnectionModal(false);
     } catch (error) {
       setIsConnected(false);
@@ -161,12 +196,29 @@ function App() {
     // Handle updates in dev mode
     if (isDevMode) {
       setSettings(prev => ({ ...prev, ...updatedSettings }));
+      
+      // Save relevant settings to local storage
+      if (updatedSettings.brightness || updatedSettings.speed) {
+        db.updateSettings({
+          brightness: updatedSettings.brightness || settings.brightness,
+          speed: updatedSettings.speed || settings.speed
+        });
+      }
+      
       return;
     }
     
     try {
       await axios.post(`http://${ipAddress}/api/control`, updatedSettings);
       setSettings(prev => ({ ...prev, ...updatedSettings }));
+      
+      // Save relevant settings to local storage
+      if (updatedSettings.brightness || updatedSettings.speed) {
+        db.updateSettings({
+          brightness: updatedSettings.brightness || settings.brightness,
+          speed: updatedSettings.speed || settings.speed
+        });
+      }
     } catch (error) {
       setMessage(`Error: ${error.message}`);
       // If connection was lost, show connection modal
@@ -187,11 +239,31 @@ function App() {
   };
   
   // Set wake mode
-  const setWakeMode = (enabled, theme = 'warm', duration = 1800) => {
+  const setWakeMode = (enabled, theme = 'warm', time = wakeTime, duration = 1800) => {
     setWakeEnabled(enabled);
     setWakeTheme(theme);
-    // In a real app, this would send a scheduled task to the ESP
-    // For now, just save the settings
+    setWakeTime(time);
+    
+    // Save wake configuration to database
+    db.updateWakeConfig({
+      enabled,
+      theme,
+      time,
+      duration
+    });
+  };
+  
+  // Update sunset configuration
+  const updateSunsetConfig = (updates) => {
+    if (updates.scheduled !== undefined) setSunsetScheduled(updates.scheduled);
+    if (updates.time) setSunsetTime(updates.time);
+    
+    // Save sunset configuration to database
+    db.updateSunsetConfig({
+      scheduled: updates.scheduled !== undefined ? updates.scheduled : sunsetScheduled,
+      time: updates.time || sunsetTime,
+      duration: updates.duration || settings.duration
+    });
   };
   
   // Apply a preset
@@ -206,16 +278,16 @@ function App() {
   
   // Add a new preset
   const addPreset = (preset) => {
-    const newPreset = {
-      id: Date.now(),
-      ...preset
-    };
-    setPresets(prev => [...prev, newPreset]);
+    db.addPreset(preset);
+    // Reload presets from database to ensure consistency
+    setPresets(db.getPresets());
   };
   
   // Delete a preset
   const deletePreset = (id) => {
-    setPresets(prev => prev.filter(preset => preset.id !== id));
+    db.deletePreset(id);
+    // Reload presets from database to ensure consistency
+    setPresets(db.getPresets());
   };
   
   // Set tab content
@@ -228,23 +300,29 @@ function App() {
             duration={settings.duration}
             onDurationChange={(duration) => updateController({ duration })}
             scheduled={sunsetScheduled}
-            setScheduled={setSunsetScheduled}
+            setScheduled={(scheduled) => updateSunsetConfig({ scheduled })}
             time={sunsetTime}
-            setTime={setSunsetTime}
+            setTime={(time) => updateSunsetConfig({ time })}
             isConnected={isConnected}
+            presets={presets}
+            applyPreset={applyPreset}
           />
         );
       case TABS.WAKE:
         return (
           <WakePage 
             enabled={wakeEnabled}
-            setEnabled={setWakeEnabled}
+            setEnabled={(enabled) => setWakeMode(enabled, wakeTheme, wakeTime)}
             theme={wakeTheme}
-            setTheme={setWakeTheme}
+            setTheme={(theme) => setWakeMode(wakeEnabled, theme, wakeTime)}
             time={wakeTime}
-            setTime={setWakeTime}
+            setTime={(time) => setWakeMode(wakeEnabled, wakeTheme, time)}
             duration={settings.duration}
-            onDurationChange={(duration) => updateController({ duration })}
+            onDurationChange={(duration) => {
+              updateController({ duration });
+              setWakeMode(wakeEnabled, wakeTheme, wakeTime, duration);
+            }}
+            presets={presets}
           />
         );
       case TABS.PRESETS:

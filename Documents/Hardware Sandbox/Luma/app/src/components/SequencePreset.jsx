@@ -3,13 +3,16 @@ import { HexColorPicker } from 'react-colorful';
 
 const SequencePreset = ({ onSave, onCancel, initialPreset = null }) => {
   const [presetName, setPresetName] = useState(initialPreset?.name || '');
-  const [colors, setColors] = useState(initialPreset?.colors || [{ hex: '#6366f1', duration: 2 }]);
+  const [colors, setColors] = useState(initialPreset?.colors || [{ hex: '#6366f1', duration: 5 }]);
   const [currentColorIndex, setCurrentColorIndex] = useState(0);
   const [brightness, setBrightness] = useState(initialPreset?.brightness || 180);
   const [isPreviewActive, setIsPreviewActive] = useState(false);
   const [previewColor, setPreviewColor] = useState(colors[0]?.hex || '#6366f1');
   const sliderRef = useRef(null);
   const previewTimerRef = useRef(null);
+  const animationFrameRef = useRef(null);
+  const previewStartRef = useRef(null);
+  const previewOrbRef = useRef(null);
   
   // Update slider fill
   useEffect(() => {
@@ -19,24 +22,77 @@ const SequencePreset = ({ onSave, onCancel, initialPreset = null }) => {
     }
   }, [brightness]);
   
-  // Preview functionality
+  // Convert hex to RGB
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 255, g: 255, b: 255 };
+  };
+  
+  // Interpolate between two colors
+  const interpolateColor = (color1, color2, factor) => {
+    const rgb1 = hexToRgb(color1);
+    const rgb2 = hexToRgb(color2);
+    
+    const r = Math.round(rgb1.r + factor * (rgb2.r - rgb1.r));
+    const g = Math.round(rgb1.g + factor * (rgb2.g - rgb1.g));
+    const b = Math.round(rgb1.b + factor * (rgb2.b - rgb1.b));
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+  
+  // Improved preview functionality with smooth transitions
   useEffect(() => {
     if (isPreviewActive && colors.length > 0) {
       let currentIndex = 0;
+      let nextIndex = (currentIndex + 1) % colors.length;
+      let transitionProgress = 0;
+      let lastTimestamp = null;
       
-      const runPreview = () => {
-        setPreviewColor(colors[currentIndex].hex);
+      previewStartRef.current = Date.now();
+      
+      const animatePreview = (timestamp) => {
+        if (!lastTimestamp) lastTimestamp = timestamp;
+        const elapsed = timestamp - lastTimestamp;
+        lastTimestamp = timestamp;
         
-        // Move to next color with duration
-        const duration = colors[currentIndex].duration * 1000; // convert to ms
-        currentIndex = (currentIndex + 1) % colors.length;
+        const currentColor = colors[currentIndex];
+        const nextColor = colors[nextIndex];
+        const transitionDuration = currentColor.duration * 1000; // in ms
         
-        previewTimerRef.current = setTimeout(runPreview, duration);
+        // Update transition progress
+        transitionProgress += elapsed / transitionDuration;
+        
+        if (transitionProgress >= 1) {
+          // Move to next color
+          currentIndex = nextIndex;
+          nextIndex = (currentIndex + 1) % colors.length;
+          transitionProgress = 0;
+        }
+        
+        // Interpolate between colors for smooth transition
+        const interpolated = interpolateColor(
+          currentColor.hex, 
+          nextColor.hex, 
+          transitionProgress
+        );
+        
+        setPreviewColor(interpolated);
+        
+        // Continue animation
+        animationFrameRef.current = requestAnimationFrame(animatePreview);
       };
       
-      runPreview();
+      // Start the animation
+      animationFrameRef.current = requestAnimationFrame(animatePreview);
       
       return () => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
         if (previewTimerRef.current) {
           clearTimeout(previewTimerRef.current);
         }
@@ -46,6 +102,16 @@ const SequencePreset = ({ onSave, onCancel, initialPreset = null }) => {
   
   const togglePreview = () => {
     setIsPreviewActive(!isPreviewActive);
+    
+    if (previewOrbRef.current) {
+      if (!isPreviewActive) {
+        // Starting preview - add transform effect
+        previewOrbRef.current.style.transform = 'scale(1.1)';
+      } else {
+        // Stopping preview - reset transform
+        previewOrbRef.current.style.transform = 'scale(1)';
+      }
+    }
   };
   
   const handleColorChange = (color) => {
@@ -121,11 +187,14 @@ const SequencePreset = ({ onSave, onCancel, initialPreset = null }) => {
         />
       </div>
       
-      <div className={`preview-orb ${isPreviewActive ? 'active' : ''}`}
+      <div 
+        className={`preview-orb ${isPreviewActive ? 'active' : ''}`}
         style={{ 
           backgroundColor: previewColor,
-          boxShadow: `0 0 40px ${previewColor}80`
+          boxShadow: `0 0 40px ${previewColor}80`,
+          transition: 'background-color 0.5s ease, transform 0.5s ease, box-shadow 0.5s ease'
         }}
+        ref={previewOrbRef}
       />
       
       <button
@@ -152,8 +221,8 @@ const SequencePreset = ({ onSave, onCancel, initialPreset = null }) => {
                 <div className="duration-input">
                   <input
                     type="number"
-                    min="1"
-                    max="30"
+                    min="2"
+                    max="60"
                     value={color.duration}
                     onChange={(e) => handleDurationChange(index, e.target.value)}
                   /> sec
