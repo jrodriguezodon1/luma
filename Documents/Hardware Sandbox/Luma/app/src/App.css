@@ -292,6 +292,8 @@ label {
   padding: 0;
   position: relative;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Content Area */
@@ -302,6 +304,7 @@ label {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
 }
 
 .page {
@@ -325,7 +328,7 @@ label {
   align-items: center;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   z-index: 100;
-  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .nav-button {
@@ -1282,4 +1285,39 @@ label {
   border-radius: 16px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+/* iOS Specific Fixes */
+.app-container {
+  /* Add safe area padding for status bar */
+  padding-top: env(safe-area-inset-top, 0px);
+  /* Ensure content doesn't go under the home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.content {
+  /* Adjust padding to account for the bottom safe area */
+  padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Adjust bottom nav for iOS */
+.bottom-nav {
+  /* Make sure nav doesn't get covered by home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* Increase height on iOS devices with home indicator */
+  height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Fix for iOS status bar */
+@supports (-webkit-touch-callout: none) {
+  /* iOS specific selector */
+  body {
+    /* Force status bar text to be white */
+    color-scheme: dark;
+  }
+  
+  /* Give extra room for iOS status bar */
+  h1 {
+    margin-top: 10px;
+  }
 } 
