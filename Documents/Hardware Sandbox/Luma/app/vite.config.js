@@ -37,4 +37,20 @@ export default defineConfig({
     host: true, // Make server accessible externally
     port: 3000,
   },
+  // Ensure proper base path for production builds
+  base: '/',
+  build: {
+    // Output directory for production build
+    outDir: 'dist',
+    // Generate source maps for easier debugging
+    sourcemap: true,
+    // Optimize chunks for better loading performance
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-colorful', 'axios'],
+        }
+      }
+    }
+  }
 });
