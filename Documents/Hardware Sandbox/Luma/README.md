@@ -1,11 +1,45 @@
-# Luma - Smart Wake & Sleep Controller
+# Luma - Smart Wake and Sleep Controller
 
-A Wi-Fi-connected smart alarm system using an ESP32 to control LED lights for simulating sunset wind-downs and sunrise wakeups, all configurable via a progressive web app (PWA).
+Luma is a smart wake and sleep controller using an ESP32 microcontroller with LED control capabilities. It helps create a natural sunrise/sunset effect to improve your sleep quality and waking experience.
 
-## Project Structure
+## Project Components
 
-- `controller/` - ESP32 firmware (C++ with PlatformIO)
-- `app/` - Frontend React app (Vite)
+### ESP32 Controller Firmware
+- Built with C++ and PlatformIO
+- Multiple LED animation modes (sunrise, sunset, solid color, rainbow)
+- JSON-based API for remote control via WiFi
+- Gradual color transitions for sunrise/sunset effects
+- Web server for handling API requests
+
+### Frontend Web App
+- Built with React/Vite
+- Premium, mobile-first UI design
+- 4-tab navigation (Sunset, Wake, Presets, Settings)
+- Sophisticated animations and visual effects
+- Local storage for persisting settings
+- Support for color sequence presets with preview functionality
+- PWA support for mobile installation
+
+## Development Mode
+The app includes a "dev mode" that allows testing without connecting to physical hardware.
+
+## Getting Started
+
+### Controller Setup
+1. Open the controller folder in PlatformIO
+2. Update WiFi credentials in `main.cpp`
+3. Flash to your ESP32 device
+
+### Web App Setup
+1. Navigate to the app directory
+2. Run `npm install`
+3. Run `npm run dev` for development
+4. Run `npm run build` for production
+
+## Connect to the Device
+1. Find your ESP32's IP address from your router or serial monitor
+2. Enter the IP in the app's connection settings
+3. Control your lights!
 
 ## Features
 
