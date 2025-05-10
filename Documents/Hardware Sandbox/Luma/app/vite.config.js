@@ -12,6 +12,7 @@ export default defineConfig({
         'luma-icon.png', 
         'luma-icon-512.png', 
         'apple-touch-icon.png',
+        'apple-launch.png',
         'luma-icon.svg',
         'luma_logo.png'
       ],
@@ -41,7 +42,18 @@ export default defineConfig({
           }
         ],
         start_url: '/',
-        orientation: 'portrait'
+        orientation: 'portrait',
+        categories: ['utilities', 'lifestyle']
+      },
+      workbox: {
+        navigateFallback: 'index.html',
+        globPatterns: ['**/*.{js,css,html,png,svg,ico}']
+      },
+      // Improve iOS PWA support
+      devOptions: {
+        enabled: true,
+        type: 'module',
+        navigateFallback: 'index.html'
       }
     })
   ],
