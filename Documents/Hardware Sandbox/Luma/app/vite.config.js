@@ -8,13 +8,19 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['luma-icon.png', 'luma-icon-512.png', 'luma-icon.svg'],
+      includeAssets: [
+        'luma-icon.png', 
+        'luma-icon-512.png', 
+        'apple-touch-icon.png',
+        'luma-icon.svg',
+        'luma_logo.png'
+      ],
       manifest: {
         name: 'Luma Controller',
         short_name: 'Luma',
         description: 'Smart Wake & Sleep Controller for LED lights',
         theme_color: '#121212',
-        background_color: '#121212',
+        background_color: '#0a0a0a',
         display: 'standalone',
         icons: [
           {
@@ -26,6 +32,12 @@ export default defineConfig({
             src: '/luma-icon-512.png',
             sizes: '512x512',
             type: 'image/png'
+          },
+          {
+            src: '/apple-touch-icon.png',
+            sizes: '180x180',
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ],
         start_url: '/',
